@@ -11,7 +11,9 @@ var dbConfig = database: {
         database: "pinballMachine",
         connectionLimit: 20,
     }
-sqlHelper.connect( config.database );
+    
+sqlHelper.connect( dbConfig );
+
 sqlHelper.config( {
     log_sql: true,
     log_errors: true
@@ -29,8 +31,10 @@ sqlhelper.get({
 ```
 #All Functions
 
-Configuration
-The most recent connected database will be your default database. You can change that using the config file. It will be used for any query you do not specify a database in the query object.
+##Configuration
+
+The most recent connected database will be your default database. You can change that using the config file. It will be used for any query you do not specify a database in the query object. 
+
 ```
 sqlHelper.connect( {
         host: "localhost",
@@ -42,13 +46,15 @@ sqlHelper.connect( {
 ```
 ```
 sqlHelper.config( {
-    log_sql: true,
-    log_errors: true,
-    default_db: "customer_backup_db"
+    log_sql: true,                      //log executed sql
+    log_errors: true,                   //log errors
+    default_db: "customer_backup_db"    //default Databse, that will be used if a database is not specified in a query_object
 } )
 ```
 
-Querying
+##Querying
+
+All methods follow the format: `sqlHelper.method( query_object, callback )`. If you wish to query on a specific database add its name to the `query_object` with the parameter `db_name`
 
 `sqlHelper.create( {table, object}, callback)`
 
@@ -72,7 +78,9 @@ Object Manipulation
 
 `sqlHelper.join(parentObject, childrenArray, foreignKey)`
 
-#FindObject Example
+#More Examples
+
+##FindObject Example
 ```
 var find_obj = {
         gender: "male",
@@ -82,6 +90,44 @@ var find_obj = {
 mysqlHelper.find({
         table: "users",
         find_object: find_obj
+}, function(err, rows, cols){
+        console.log(rows)
+}
+```
+
+##Query with values Example
+```
+mysqlHelper.query({
+        sql: "Select * from ?? where id = ?",
+        values: ["users", user_id]
+}, function(err, rows, cols){
+        console.log(rows)
+}
+```
+
+##Multiple Database Conections
+```
+var dbConfig1 = database: {
+        host: "localhost",
+        user: "admin",
+        password: 'pw',
+        database: "pinballMachine",
+        connectionLimit: 20,
+    }
+var dbConfig2 = database: {
+        host: "localhost",
+        user: "admin",
+        password: 'pw',
+        database: "sodaPopDatabase",
+        connectionLimit: 30,
+    }
+    
+sqlHelper.connect( dbConfig1 );
+sqlHelper.connect( dbConfig2 );
+
+mysqlHelper.query({
+        db_name: "pinballMachine",
+        sql: "Select * from users"
 }, function(err, rows, cols){
         console.log(rows)
 }
