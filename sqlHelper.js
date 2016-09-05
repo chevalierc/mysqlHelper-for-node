@@ -1,44 +1,62 @@
 var mysql = require( 'mysql' );
 
-//constructorzzz
-// Pivot  (data, pivot_column )
-// join   (parent, children, foreignKey)
-// create ( tableName, object, callback)
-// update ( tableName, object, callback)
-// remove ( tableName, id, cb)
-// get    ( tableName, id(or null), callback)
-// find   ( tableName, conditions as object {field: val, ... } , callback) field = val
-// find   ( tableName, conditions as object {field: {op: val}}, ... } , callback) field {{op}} val
-// query  (sql, callback) --wrapper to hide error handling and logging
 
-var DBfields = {}
-var pool = {}
-var DBname = ""
-var logSQL = false;
-var logErrors = true;
+// db_data {
+//     {{db_name}}: {
+//         pool: pool,
+//         {{tale_name}}{
+//              columns: [],
+//              pk: ""
+//          }
+//     }
+// }
+
+var db_data = {}
+var default_db_name = ""
+var log_sql = false;
+var log_errors = true;
+
 
 var connect = function( config ) {
-    pool = mysql.createPool( config )
-    DBname = config.database;
-    console.log( "MySQL connected!" )
+    var pool = mysql.createPool( config )
+    var db_name = config.database;
+    db_data[ db_name ] = {
+        'pool': pool
+    };
+    default_db_name = db_name;
+
+    console.log( "MySQL connected to database %s.", db_name )
+    console.log( "%s is now the current Database.", db_name )
 }
 
 var config = function( config ) {
-    if ( config.logSQL ) {
-        logSQL = config.logSQL;
+    if ( config.log_sql ) {
+        log_sql = config.log_sql;
     }
-    if ( config.logErrors ) {
-        logErrors = logErrors
+    if ( config.log_errors ) {
+        log_errors = config.log_errors
+    }
+    if ( config.default_db ) {
+        default_db_name = config.default_db
+        console.log( "%s is now the current Database.", default_db )
     }
 }
 
-var checkForTableInformation = function( tableName, cb ) {
-    if ( ( DBfields[ tableName ] == null ) || ( DBfields[ tableName ] == undefined ) ) {
-        var sql = "SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE table_name = '" + tableName + "' and TABLE_SCHEMA = '" + DBname + "';"
-        query( sql, function( err, rows, cols ) {
+var checkForTableInformation = function( query_obj, cb ) {
+    var db_name = query_obj.db_name
+    var table = query_obj.table
+    var columns = db_data[ db_name ][ table ]
+    if ( ( columns == null ) || ( columns == undefined ) ) {
+        query( {
+            db_name: query_obj.db_name,
+            sql: "SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = ? and TABLE_SCHEMA = ?;",
+            values: [ query_obj.table, query_obj.db_name ]
+        }, function( err, rows ) {
             if ( !err ) {
-                DBfields[ tableName ] = {}
-                DBfields[ tableName ].params = [];
+
+                var table_info = {}
+                table_info.params = [];
+
                 for ( var i = 0; i < rows.length; i++ ) {
                     var field = rows[ i ].COLUMN_NAME
                     var isPK = false;
@@ -47,16 +65,20 @@ var checkForTableInformation = function( tableName, cb ) {
                     }
 
                     if ( isPK ) {
-                        DBfields[ tableName ].pk = field;
+                        table_info.pk = field;
                     } else {
-                        DBfields[ tableName ].params.push( field )
+                        table_info.params.push( field )
                     }
-
                 }
+
+                db_data[ db_name ][ table ] = table_info
                 cb()
+
             } else {
+
                 error( err, null )
                 cb()
+
             }
         } )
     } else {
@@ -64,22 +86,145 @@ var checkForTableInformation = function( tableName, cb ) {
     }
 }
 
-var cleanDates = function( object ) {
-    for ( field in object ) {
-        if ( date_columns.indexOf( field ) != -1 ) {
-            var value = object[ field ]
-            if ( value && value != "" ) {
-                object[ field ] = moment( value ).format( 'YYYY-MM-DD' )
-            } else {
-                object[ field ] = null
-            }
-        }
+var query = function( query_obj, cb ) {
+    query_obj = clean_query_obj( query_obj )
+    var sql = query_obj.sql;
+    var db_name = query_obj.db_name
+    var values = null;
+    if ( query_obj.values ) {
+        values = query_obj.values
     }
-    return object
+
+    var pool = db_data[ db_name ].pool
+
+    if ( pool ) {
+        if ( values ) {
+            sql = mysql.format( sql, values );
+        }
+        if ( log_sql ) {
+            console.log( sql )
+        }
+        pool.query( sql, function( err, rows, cols ) {
+            if ( err ) {
+                error( err, sql )
+            }
+            cb( err, rows, cols )
+        } )
+    } else {
+        cb( null, null, null )
+    }
+}
+
+var get = function( query_obj, cb ) {
+    query_obj = clean_query_obj( query_obj )
+    checkForTableInformation( query_obj, function() {
+        var id = query_obj.id
+        var table = query_obj.table
+        var db_name = query_obj.db_name
+        var pk = db_data[ db_name ][ table ].pk
+
+        query_obj.sql = "select * from ?? where ?? = ? Limit 1;";
+        query_obj.values = [ table, pk, id ]
+        query( query_obj, cb );
+    } );
+}
+
+var all = function( query_obj, cb ) {
+    query_obj = clean_query_obj( query_obj )
+    query_obj.sql = "select * from ??";
+    query_obj.values = [ query_obj.table ]
+
+    query( sql, function( err, rows, cols ) {
+        cb( err, rows, cols )
+    } );
+}
+
+var find = function( query_obj, cb ) {
+    query_obj = clean_query_obj( query_obj )
+    query_obj = buildFindStatement( query_obj )
+    query( query_obj, cb );
+}
+
+var findOne = function( query_obj, cb ) {
+    query_obj = clean_query_obj( query_obj )
+    query_obj = buildFindStatement( query_obj )
+    query_obj.sql += " limit 1;" //escape last AND , and limti to 1
+
+    query( query_obj, function( err, rows, cols ) {
+        if ( cols == 0 ) {
+            cb( err, null, null )
+        } else {
+            cb( err, rows[ 0 ], cols )
+        }
+    } );
+}
+
+var buildFindStatement = function( query_obj ) {
+    var table = query_obj.table
+    var conditions = query_obj.find_object
+    query_obj.sql = "select * from ?? where "
+    query_obj.balues = [ table ]
+    for ( field in conditions ) {
+        if ( typeof conditions[ field ] === 'object' ) {
+            for ( operator in conditions[ field ] ) {
+                query_obj.sql += " ( ?? ?? ?) AND "
+                var value = conditions[ field ][ operator ]
+                query_obj.values.push( [ field, operator, value ] )
+            }
+        } else {
+            query_obj.sql += "( ?? = ?) AND "
+            var val = conditions[ field ]
+            query_obj.values.push( [ field, val ] )
+        }
+
+    }
+    query_obj.sql += "true "
+
+    return query_obj
+}
+
+
+var create = function( query_obj, cb ) {
+    query_obj = clean_query_obj( query_obj )
+    checkForTableInformation( query_obj, function() {
+        query_obj.sql = "Insert into ?? SET ?"
+        query_obj.values = [ query_obj.table, query_obj.object ]
+        query( query_obj, cb );
+    } );
+}
+
+var update = function( query_obj, cb ) {
+    query_obj = clean_query_obj( query_obj )
+    checkForTableInformation( query_obj, function() {
+        var table = query_obj.table
+        var db_name = query_obj.db_name
+        var object = query_obj.object
+        var pk = db_data[ db_name ][ table ].pk
+        var id = object[ pk ]
+
+        query_obj.sql = "update ?? set ? where ?? = ? "
+        query_obj.values = [ table, object, pk, id ]
+
+        query( query_obj, cb );
+    } );
+}
+
+var remove = function( query_obj, cb ) {
+    query_obj = clean_query_obj( query_obj )
+    checkForTableInformation( query_obj, function() {
+        var id = query_obj.id
+        var table = obj.table
+        var db_name = query_obj.db_name
+        var pk = db_data[ db_name ][ table ].pk
+        var id = query_obj[ pk ]
+        query_obj.sql = "delete from ?? where ?? = ?"
+        query_obj.values = [ table, pk, id ]
+        query( query_obj, cb );
+    } );
 }
 
 var error = function( err, sql ) {
-    if ( logErrors ) {
+    if ( log_errors ) {
         console.log( "ERROR: " )
         console.log( err )
         console.log( "SQL:  " )
@@ -110,176 +255,16 @@ var join = function( parent, children, foreignKey ) {
     return response
 }
 
-var get = function( table, id, cb ) {
-    checkForTableInformation( table, function() {
-        var pk = DBfields[ table ].pk
-        var sql = "select * from " + table
-        if ( id ) {
-            sql += " where " + pk + " = " + id + " Limit 1;";
-        }
-        query( sql, function( err, rows, cols ) {
-            cb( err, rows, cols )
-        } );
-    } );
-}
-
-var all = function( table, cb ) {
-    var sql = "select * from " + table;
-
-    query( sql, function( err, rows, cols ) {
-        cb( err, rows, cols )
-    } );
-}
-
-var find = function( table, conditions, cb ) {
-    var sql = "select * from " + table + " where "
-    for ( field in conditions ) {
-        if ( typeof conditions[ field ] === 'object' ) {
-            for ( operator in conditions[ field ] ) {
-                sql += "( " + field + " " + operator + " '" + conditions[ field ][ operator ] + "') AND "
-            }
-        } else {
-            sql += "( " + field + " = '" + conditions[ field ] + "') AND "
-        }
-
+var clean_query_obj = function( query_obj ) {
+    var isNull = ( !query_obj.db_name )
+    var isUndefined = ( query_obj.db_name == undefined )
+    if ( isNull || isUndefined ) {
+        query_obj.db_name = default_db_name
     }
-    sql += "true;" //escape last AND
-
-    query( sql, function( err, rows, cols ) {
-        cb( err, rows, cols )
-    } );
-}
-
-var findOne = function( table, conditions, cb ) {
-    var sql = "select * from " + table + " where "
-    for ( field in conditions ) {
-        if ( typeof conditions[ field ] === 'object' ) {
-            for ( operator in conditions[ field ] ) {
-                sql += "( " + field + " " + operator + " '" + conditions[ field ][ operator ] + "') AND "
-            }
-        } else {
-            sql += "( " + field + " = '" + conditions[ field ] + "') AND "
-        }
+    if ( query_obj.values == undefined ) {
+        query_obj.values = null
     }
-    sql += "true limit 1;" //escape last AND , and limti to 1
-
-    query( sql, function( err, rows, cols ) {
-        if ( cols == 0 ) {
-            cb( err, null, cols )
-        } else {
-            cb( err, rows[ 0 ], cols )
-        }
-
-    } );
-}
-
-
-var create = function( table, object, cb ) {
-    // object = cleanDates( object )
-    var usedFields = [];
-    var vals = [];
-    checkForTableInformation( table, function() {
-        var fields = DBfields[ table ].params
-        for ( var i = 0; i < fields.length; i++ ) {
-            var curField = fields[ i ];
-            if ( object[ curField ] ) {
-                usedFields.push( fields[ i ] )
-            }
-        }
-
-        var sql = "Insert into " + table + " ( "
-        for ( var i = 0; i < usedFields.length; i++ ) {
-            var curField = usedFields[ i ];
-            sql += curField
-            if ( i != usedFields.length - 1 ) {
-                sql += " , "
-            }
-        }
-
-        sql += ") values ( "
-
-        for ( var i = 0; i < usedFields.length; i++ ) {
-            var curField = usedFields[ i ];
-            vals.push( object[ curField ] )
-            sql += "?"
-            if ( i != usedFields.length - 1 ) {
-                sql += ", "
-            }
-        }
-
-        sql += " );"
-
-        //replace the ?'s with the values stored in vals while formatting them for mysql
-        sql = mysql.format( sql, vals );
-
-        query( sql, function( err, rows, cols ) {
-            cb( err, rows, cols )
-        } );
-
-    } );
-}
-
-
-var update = function( table, object, cb ) {
-    checkForTableInformation( table, function() {
-        var update = [];
-        var fields = DBfields[ table ].params
-        var pk = DBfieldss[ table ].pk
-
-        //object = cleanDates( object )
-
-        for ( var i = 0; i < fields.length; i++ ) {
-            var curField = fields[ i ];
-            if ( curField in object ) {
-                var curVal = object[ curField ]
-
-                //mysql needs null date values as null not 'null' or ''
-                if ( curVal == "" || curVal == null ) {
-                    update.push( curField + " = null " )
-                } else {
-                    update.push( curField + " = '" + object[ curField ] + "'" )
-                }
-
-            }
-        }
-
-        var sql = "Update " + table + " Set "
-        for ( var i = 0; i < update.length; i++ ) {
-            sql += update[ i ]
-            if ( i != update.length - 1 ) {
-                sql += ", "
-            }
-        }
-
-        sql += " where " + pk + " = " + object.id;
-        query( sql, function( err, rows, cols ) {
-            cb( err, rows, cols )
-        } );
-    } );
-}
-
-var remove = function( table, id, cb ) {
-    checkForTableInformation( table, function() {
-        var pk = DBfieldss[ table ].pk
-        var sql = "delete from " + table + " where " + pk + " = " + id
-        query( sql, function( err, rows, cols ) {
-            cb( err, rows, cols )
-        } );
-    } );
-}
-
-var query = function( sql, cb ) {
-    if ( pool ) {
-        if ( logSQL ) console.log( sql )
-        pool.query( sql, function( err, rows, cols ) {
-            if ( err ) {
-                error( err, sql )
-            }
-            cb( err, rows, cols )
-        } )
-    } else {
-        cb( null, null, null )
-    }
+    return query_obj
 }
 
 module.exports = {
