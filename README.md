@@ -13,12 +13,15 @@ var dbConfig = database: {
     }
 sqlHelper.connect( config.database );
 sqlHelper.config( {
-    logSQL: true,
-    logErros: true
+    log_sql: true,
+    log_errors: true
 } );
 
 var id = 233
-sqlhelper.get("users", id, function(err, rows, cols){
+sqlhelper.get({
+        table:"users",
+        id: id
+}, function(err, rows, cols){
     if(!err){
         var user = rows[0]
     }
@@ -27,30 +30,41 @@ sqlhelper.get("users", id, function(err, rows, cols){
 #All Functions
 
 Configuration
-
-`sqlHelper.connect( config )`
-
-`sqlHelper.config( config )`
+The most recent connected database will be your default database. You can change that using the config file. It will be used for any query you do not specify a database in the query object.
+```
+sqlHelper.connect( {
+        host: "localhost",
+        user: "admin",
+        password: 'pw',
+        database: "pinballMachine",
+        connectionLimit: 20,
+    } )
+```
+```
+sqlHelper.config( {
+    log_sql: true,
+    log_errors: true,
+    default_db: "customer_backup_db"
+} )
+```
 
 Querying
 
-`sqlHelper.create( tableName, object, callback)`
+`sqlHelper.create( {table, object}, callback)`
 
-`sqlHelper.update( tableName, object, callback)`
+`sqlHelper.update( {table, object}, callback)`
 
-`sqlHelper.remove( tableName, id, cb)`
+`sqlHelper.remove( {table, id}, cb)`
 
-`sqlHelper.get( tableName, id, callback)`
+`sqlHelper.get( {table, id}, callback)`
 
-`sqlHelper.find( tableName, conditions as object {field: val, ... } , callback)`
+`sqlHelper.find( {table, find_object} , callback)`
 
-`sqlHelper.find( tableName, conditions as object {field: {operator: val}}, ... } , callback)`
+`sqlHelper.findOne( {tableName, find_object}, callback)`
 
-`sqlHelper.findOne( tableName, condition object, callback)`
+`sqlheper.all( {table}, callback)`
 
-`sqlheper.all(tableName, callback)`
-
-`sqlHelper.query(sql, callback)`
+`sqlHelper.query( {sql, values}, callback)`
 
 Object Manipulation
 
@@ -58,14 +72,17 @@ Object Manipulation
 
 `sqlHelper.join(parentObject, childrenArray, foreignKey)`
 
-#Find Example
+#FindObject Example
 ```
-var findConditions = {
+var find_obj = {
         gender: "male",
         age: {">": 21},
         name: {"!=": "Jeff"}
 }
-mysqlHelper.find("users", findConditions, function(err, rows, cols){
+mysqlHelper.find({
+        table: "users",
+        find_object: find_obj
+}, function(err, rows, cols){
         console.log(rows)
 }
 ```
