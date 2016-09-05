@@ -1,6 +1,7 @@
 # Node Mysql-Helper Utility
-Node utility for simplifying interactions with a mysql database
-Automaticly detects primary key and table columns when needed then stores them for future method calls.
+###Node utility for simplifying interactions with a mysql database.
+
+Automaticly detects primary key and table columns when needed then stores them for future method calls. Will prevent sql injection.
 
 #Basic Usage
 ```
@@ -54,7 +55,9 @@ sqlHelper.config( {
 
 ##Querying
 
-All methods follow the format: `sqlHelper.method( query_object, callback )`. If you wish to query on a specific database add its name to the `query_object` with the parameter `db_name`
+All methods follow the format: `sqlHelper.method( query_object, callback )`. If you wish to query on a specific database add its name to the `query_object` with the parameter `db_name`.
+
+See example for how to use a find_object
 
 `sqlHelper.create( {table, object}, callback)`
 
@@ -68,13 +71,13 @@ All methods follow the format: `sqlHelper.method( query_object, callback )`. If 
 
 `sqlHelper.findOne( {tableName, find_object}, callback)`
 
-`sqlheper.all( {table}, callback)`
+`sqlHeper.all( {table}, callback)`
 
 `sqlHelper.query( {sql, values}, callback)`
 
 Object Manipulation
 
-`sqlhelper.pivot(object, pivot_column )`
+`sqlHelper.pivot(object, pivot_column )`
 
 `sqlHelper.join(parentObject, childrenArray, foreignKey)`
 
@@ -96,6 +99,7 @@ mysqlHelper.find({
 ```
 
 ##Query with values Example
+Using the values array you can avoid sqlInjection. Use `??` for column and table names and `?` for values
 ```
 mysqlHelper.query({
         sql: "Select * from ?? where id = ?",
