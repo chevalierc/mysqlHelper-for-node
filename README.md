@@ -73,6 +73,8 @@ See example for how to use a find_object
 
 `sqlHeper.all( {table}, callback)`
 
+`sqlhelper.populate( {join_structure}, cb)`
+
 `sqlHelper.query( {sql, values}, callback)`
 
 Object Manipulation
@@ -94,6 +96,27 @@ mysqlHelper.find({
         table: "users",
         find_object: find_obj
 }, function(err, rows, cols){
+        console.log(rows)
+}
+```
+
+```
+##Populate Example (extreme joining)
+var join_structure = {
+        table: "car",
+        children: [ {
+            table: "wheel",
+            fk: "car_fk",
+            children: [ {
+                table: "bolt",
+                fk: "wheel_fk"
+            }, {
+                table: "rubber",
+                fk: "wheel_fk"
+            } ]
+        } ]
+}
+mysqlHelper.populate( join_structure, function(err, rows, cols){
         console.log(rows)
 }
 ```
