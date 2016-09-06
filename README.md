@@ -117,7 +117,7 @@ var join_structure = {
             } ]
         } ]
 }
-var extra_sql = "where card.make = 'volvo'
+var extra_sql = "where card.make = 'volvo'"
 
 mysqlHelper.populate( join_structure, extra_sql, function(err, cars, cols){
         console.log(cars)
