@@ -100,8 +100,9 @@ mysqlHelper.find({
 }
 ```
 
-```
 ##Populate Example (extreme joining)
+
+```
 var join_structure = {
         table: "car",
         children: [ {
