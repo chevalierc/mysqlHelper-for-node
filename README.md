@@ -77,7 +77,7 @@ See example for how to use a find_object
 
 `sqlHelper.query( {sql, values}, callback)`
 
-Object Manipulation
+##Object Manipulation
 
 `sqlHelper.pivot(object, pivot_column )`
 
