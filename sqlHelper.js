@@ -128,6 +128,7 @@ var all = function ( query_obj, cb ) {
 var find = function ( query_obj, cb ) {
     query_obj = clean_query_obj( query_obj )
     query_obj = buildFindStatement( query_obj )
+    console.log( query_obj )
     query( query_obj, cb );
 }
 
@@ -149,18 +150,18 @@ var buildFindStatement = function ( query_obj ) {
     var table = query_obj.table
     var conditions = query_obj.find
     query_obj.sql = "select * from ?? where "
-    query_obj.balues = [ table ]
+    query_obj.values = [ table ]
     for ( field in conditions ) {
         if ( typeof conditions[ field ] === 'object' ) {
             for ( operator in conditions[ field ] ) {
                 query_obj.sql += " ( ?? ?? ?) AND "
                 var value = conditions[ field ][ operator ]
-                query_obj.values.push( [ field, operator, value ] )
+                query_obj.values.push( field, operator, value )
             }
         } else {
-            query_obj.sql += "( ?? = ?) AND "
+            query_obj.sql += " ( ?? = ?) AND "
             var val = conditions[ field ]
-            query_obj.values.push( [ field, val ] )
+            query_obj.values.push( field, val )
         }
 
     }
@@ -172,19 +173,23 @@ var buildFindStatement = function ( query_obj ) {
 
 var create = function ( query_obj, cb ) {
     query_obj = clean_query_obj( query_obj )
+    var table = query_obj.table
+    var object = query_obj.object
+    var db = query_obj.db_name
+    object = clean_object_for_insertion( table, object, db )
     query_obj.sql = "Insert into ?? SET ?"
-    query_obj.values = [ query_obj.table, query_obj.object ]
+    query_obj.values = [ table, object ]
     query( query_obj, cb );
 }
 
 var update = function ( query_obj, cb ) {
     query_obj = clean_query_obj( query_obj )
     var table = query_obj.table
-    var db_name = query_obj.db_name
     var object = query_obj.object
+    var db = query_obj.db_name
     var pk = db_data[ db_name ][ table ].pk
     var id = object[ pk ]
-
+    object = clean_object_for_insertion( table, object, db )
     query_obj.sql = "update ?? set ? where ?? = ? "
     query_obj.values = [ table, object, pk, id ]
 
@@ -212,6 +217,18 @@ var error = function ( err, sql ) {
     }
 }
 
+var clean_object_for_insertion = function ( table_name, dirty_object, db_name ) {
+    var table_columns = db_data[ db_name ][ table_name ].params
+    var clean_object = {}
+    for ( var i = 0; i < table_columns.length; i++ ) {
+        var column_name = table_columns[ i ].name
+        if ( dirty_object[ column_name ] != undefined ) {
+            clean_object[ column_name ] = dirty_object[ column_name ]
+        }
+    }
+    return clean_object
+}
+
 //--Populate and its helpers
 
 var populate = function ( structure, db_name, extra, cb ) {
@@ -224,13 +241,16 @@ var populate = function ( structure, db_name, extra, cb ) {
     query( {
         sql: sql
     }, function ( err, rows, cols ) {
-        if ( rows.length > 0 || err ) {
-            obj = build_object( rows, structure, db_name, null, null )
-            cb( err, obj, cols )
+        if ( !err ) {
+            if ( rows.length > 0 || err ) {
+                obj = build_object( rows, structure, db_name, null, null )
+                cb( err, obj, cols )
+            } else {
+                cb( err, null, null )
+            }
         } else {
             cb( err, null, null )
         }
-
     } )
 }
 
