@@ -73,7 +73,7 @@ See example for how to use a find_object
 
 `sqlHeper.all( {table}, callback)`
 
-`sqlhelper.populate( {join_structure}, extra_sql, cb)`
+`sqlhelper.populate( {join_structure, sql, values}, callback)`
 
 `sqlHelper.query( {sql, values}, callback)`
 
@@ -117,9 +117,14 @@ var join_structure = {
             } ]
         } ]
 }
-var extra_sql = "where card.make = 'volvo'"
+var extra_sql = "where card.make = ?"
+var values = "Volvo"
 
-mysqlHelper.populate( join_structure, extra_sql, function(err, cars, cols){
+mysqlHelper.populate( {
+        structure: join_structure,
+        sql: extra_sql,
+        values: values
+}, function(err, cars, cols){
         console.log(cars)
 }
 ```
