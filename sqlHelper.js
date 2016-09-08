@@ -1,10 +1,15 @@
+//REQUIRED MODULES
+
 var mysql = require( 'mysql' );
+
+//PRIVATE VARIABLES
 
 var db_data = {}
 var default_db_name = ""
 var log_sql = false;
 var log_errors = true;
 
+//CONFIGURATION PUBLIC METHODS
 
 var connect = function ( config, cb ) {
     var pool = mysql.createPool( config )
@@ -33,6 +38,8 @@ var config = function ( config ) {
     }
 }
 
+//CONFIGURATION PRIVATE METHODS
+
 var get_db_columns = function ( db_name, cb ) {
     query( {
         db_name: db_name,
@@ -41,7 +48,7 @@ var get_db_columns = function ( db_name, cb ) {
     }, function ( err, rows, cols ) {
         if ( !err ) {
             for ( var i = 0; i < rows.length; i++ ) {
-                var column = rows[ i ].COLUMN_NAME
+                var column_name = rows[ i ].COLUMN_NAME
                 var table = rows[ i ].TABLE_NAME
                 var type = rows[ i ].DATA_TYPE
                 var isPK = false;
@@ -50,20 +57,20 @@ var get_db_columns = function ( db_name, cb ) {
                 }
 
                 //create object for new table in db_data
-                if ( !db_data[ db_name ][ table ] ) {
+                if ( db_data[ db_name ][ table ] == undefined ) {
                     db_data[ db_name ][ table ] = {
-                        params: []
+                        columns: []
                     }
                 }
 
                 if ( isPK ) {
-                    db_data[ db_name ][ table ].pk = column;
+                    db_data[ db_name ][ table ].pk = column_name;
                 } else {
-                    var entry = {
-                        name: column,
+                    var column = {
+                        name: column_name,
                         type: type
                     }
-                    db_data[ db_name ][ table ].params.push( entry )
+                    db_data[ db_name ][ table ].columns.push( column )
                 }
             }
             cb()
@@ -74,20 +81,21 @@ var get_db_columns = function ( db_name, cb ) {
     } )
 }
 
+//QUERY PUBLIC METHODS
+
 var query = function ( query_obj, cb ) {
     query_obj = clean_query_obj( query_obj )
     var sql = query_obj.sql;
     var db_name = query_obj.db_name
-    var values = null;
+    var pool = db_data[ db_name ].pool
+    var query_values = null;
     if ( query_obj.values ) {
-        values = query_obj.values
+        query_values = query_obj.values
     }
 
-    var pool = db_data[ db_name ].pool
-
     if ( pool ) {
-        if ( values ) {
-            sql = mysql.format( sql, values );
+        if ( query_values ) {
+            sql = mysql.format( sql, query_values );
         }
         if ( log_sql ) {
             console.log( sql )
@@ -128,14 +136,13 @@ var all = function ( query_obj, cb ) {
 var find = function ( query_obj, cb ) {
     query_obj = clean_query_obj( query_obj )
     query_obj = buildFindStatement( query_obj )
-    console.log( query_obj )
     query( query_obj, cb );
 }
 
 var findOne = function ( query_obj, cb ) {
     query_obj = clean_query_obj( query_obj )
     query_obj = buildFindStatement( query_obj )
-    query_obj.sql += " limit 1;" //escape last AND , and limti to 1
+    query_obj.sql += " limit 1;"
 
     query( query_obj, function ( err, rows, cols ) {
         if ( cols == 0 ) {
@@ -160,8 +167,8 @@ var buildFindStatement = function ( query_obj ) {
             }
         } else {
             query_obj.sql += " ( ?? = ?) AND "
-            var val = conditions[ field ]
-            query_obj.values.push( field, val )
+            var value = conditions[ field ]
+            query_obj.values.push( field, value )
         }
 
     }
@@ -169,7 +176,6 @@ var buildFindStatement = function ( query_obj ) {
 
     return query_obj
 }
-
 
 var create = function ( query_obj, cb ) {
     query_obj = clean_query_obj( query_obj )
@@ -187,8 +193,8 @@ var update = function ( query_obj, cb ) {
     var table = query_obj.table
     var object = query_obj.object
     var db = query_obj.db_name
-    var pk = db_data[ db_name ][ table ].pk
-    var id = object[ pk ]
+    var pk_column_name = db_data[ db_name ][ table ].pk
+    var id = object[ pk_column_name ]
     object = clean_object_for_insertion( table, object, db )
     query_obj.sql = "update ?? set ? where ?? = ? "
     query_obj.values = [ table, object, pk, id ]
@@ -201,11 +207,40 @@ var remove = function ( query_obj, cb ) {
     var id = query_obj.id
     var table = obj.table
     var db_name = query_obj.db_name
-    var pk = db_data[ db_name ][ table ].pk
-    var id = query_obj[ pk ]
+    var pk_column_name = db_data[ db_name ][ table ].pk
     query_obj.sql = "delete from ?? where ?? = ?"
-    query_obj.values = [ table, pk, id ]
+    query_obj.values = [ table, pk_column_name, id ]
     query( query_obj, cb );
+}
+
+//QUERY PRIVATE METHODS
+
+var clean_object_for_insertion = function ( table_name, dirty_object, db_name ) {
+    var table_columns = db_data[ db_name ][ table_name ].columns
+    var pk_name = db_data[ db_name ][ table_name ].pk
+    table_columns.push( {
+        name: pk_name
+    } )
+    var clean_object = {}
+    for ( var i = 0; i < table_columns.length; i++ ) {
+        var column_name = table_columns[ i ].name
+        if ( dirty_object[ column_name ] != undefined ) {
+            clean_object[ column_name ] = dirty_object[ column_name ]
+        }
+    }
+    return clean_object
+}
+
+var clean_query_obj = function ( query_obj ) {
+    var isNull = ( !query_obj.db_name )
+    var isUndefined = ( query_obj.db_name == undefined )
+    if ( isNull || isUndefined ) {
+        query_obj.db_name = default_db_name
+    }
+    if ( query_obj.values == undefined ) {
+        query_obj.values = null
+    }
+    return query_obj
 }
 
 var error = function ( err, sql ) {
@@ -217,32 +252,33 @@ var error = function ( err, sql ) {
     }
 }
 
-var clean_object_for_insertion = function ( table_name, dirty_object, db_name ) {
-    var table_columns = db_data[ db_name ][ table_name ].params
-    var clean_object = {}
-    for ( var i = 0; i < table_columns.length; i++ ) {
-        var column_name = table_columns[ i ].name
-        if ( dirty_object[ column_name ] != undefined ) {
-            clean_object[ column_name ] = dirty_object[ column_name ]
-        }
+//POPULATE PUBLIC METHOD FOLLOWED BY ITS HELPERS -- located here due to amount of private methods
+
+var populate = function ( query_obj, cb ) {
+    query_obj = clean_query_obj( query_obj )
+    var structure = query_obj.structure
+    var db_name = query_obj.db_name
+    var extra_sql = query_obj.sql
+    var values = query_obj.values
+
+    if ( query_obj.values ) {
+        extra_sql = mysql.format( extra_sql, values );
     }
-    return clean_object
-}
 
-//--Populate and its helpers
-
-var populate = function ( structure, db_name, extra, cb ) {
-    var sql = "select "
-    sql += build_select_sql( structure, db_name )
-    sql += "null from " + structure.table;
+    var sql = "select * from " + structure.table
     sql += build_join_sql( structure )
-    sql += extra + " ;"
+    sql += extra_sql + " ;"
 
-    query( {
-        sql: sql
+    var pool = db_data[ db_name ].pool
+    if ( log_sql ) {
+        console.log( sql )
+    }
+    pool.query( {
+        sql: sql,
+        nestTables: true
     }, function ( err, rows, cols ) {
         if ( !err ) {
-            if ( rows.length > 0 || err ) {
+            if ( rows.length > 0 ) {
                 obj = build_object( rows, structure, db_name, null, null )
                 cb( err, obj, cols )
             } else {
@@ -254,31 +290,6 @@ var populate = function ( structure, db_name, extra, cb ) {
     } )
 }
 
-var to_sql = function ( table, column ) {
-    return ( table + "__" + column )
-}
-
-var build_select_sql = function ( structure, db_name ) {
-    var sql = ""
-    var table = structure.table;
-    var columns = db_data[ db_name ][ table ].params;
-    var pk = db_data[ db_name ][ table ].pk;
-    //add table members to sql select statement
-    for ( var i = 0; i < columns.length; i++ ) {
-        sql += table + "." + columns[ i ].name + " as " + to_sql( table, columns[ i ].name ) + ", "
-    }
-    sql += table + "." + pk + " as " + to_sql( table, pk ) + ", "
-
-    if ( structure.children != undefined ) {
-        for ( var i = 0; i < structure.children.length; i++ ) {
-            var child = structure.children[ i ]
-            sql += build_select_sql( child, db_name )
-        }
-    }
-
-    return sql
-}
-
 var build_join_sql = function ( structure ) {
     var sql = ""
     if ( structure.children != undefined ) {
@@ -288,7 +299,7 @@ var build_join_sql = function ( structure ) {
             var child_table = child_obj.table
             var fk = child_table + "." + child_obj.fk
             sql += " left join " + child_table + " on " + fk + "=" + parent_table + ".id "
-            sql += build_join_sql( child_obj )
+            sql += build_join_sql( child_obj ) //recursion
         }
     }
     return sql
@@ -296,36 +307,37 @@ var build_join_sql = function ( structure ) {
 
 var build_object = function ( data, structure, db_name, parent_id, parent_fk ) {
     var obj = []
-    var table = structure.table //srid
-    var table_id_column = db_data[ db_name ][ table ].pk
-    table_id_column = to_sql( table, table_id_column ) //srid__id
+    var table_name = structure.table
+    var table_id_column = db_data[ db_name ][ table_name ].pk
 
     var unique_ids = []
     for ( var i = 0; i < data.length; i++ ) {
-        //go row by row looking for children
+        var row = data[ i ]
+            //go row by row looking for children
         var fk_val
         var is_child = false;
         if ( structure.fk != undefined ) {
-            var fk_column = to_sql( structure.table, structure.fk ) //srid__compound_id_fk
-            fk_val = data[ i ][ fk_column ] //1
+            var fk_column = structure.fk
+            fk_val = row[ table_name ][ fk_column ]
             is_child = ( fk_val == parent_id )
         }
         if ( parent_id == null ) {
-            is_child = true
+            is_child = true //top most node of join structure
         }
 
-        var child_id = data[ i ][ table_id_column ] //1
+        var child_id = row[ table_name ][ table_id_column ]
 
         var notUsedYet = ( unique_ids.indexOf( child_id ) == -1 )
 
         if ( notUsedYet && is_child ) {
             unique_ids.push( child_id )
-            var cur_obj = cleanObject( data[ i ], table, db_name )
-                //look for children
+            var cur_obj = clean_object_for_insertion( table_name, row[ table_name ], db_name )
+
+            //look for children
             if ( structure.children != undefined ) {
                 for ( var j = 0; j < structure.children.length; j++ ) {
                     var child = structure.children[ j ]
-                    cur_obj[ child.table ] = build_object( data, child, db_name, child_id )
+                    cur_obj[ child.table ] = build_object( data, child, db_name, child_id ) //recursion
                 }
             }
             obj.push( cur_obj )
@@ -334,26 +346,7 @@ var build_object = function ( data, structure, db_name, parent_id, parent_fk ) {
     return obj
 }
 
-var cleanObject = function ( data, table, db_name ) {
-    var members = db_data[ db_name ][ table ].params
-    var id = db_data[ db_name ][ table ].pk
-    var obj = {};
-    for ( var i = 0; i < members.length; i++ ) {
-        var member = to_sql( table, members[ i ].name )
-        if ( data[ member ] ) {
-            if ( members[ i ].type == "date" ) {
-                obj[ members[ i ].name ] = new Date( data[ member ] ).toISOString().substring( 0, 10 );
-            } else {
-                obj[ members[ i ].name ] = data[ member ]
-            }
-        }
-    }
-    obj[ id ] = data[ to_sql( table, id ) ]
-    return obj
-}
-
-//------------------------------------------------------------------------------
-
+//OBJECT MANIPULATION PUBLIC METHODS
 var pivot = function ( data, pivot_column ) {
     var response = {}
     for ( var i = 0; i < data.length; i++ ) {
@@ -377,18 +370,7 @@ var join = function ( parent, children, foreignKey ) {
     return response
 }
 
-var clean_query_obj = function ( query_obj ) {
-    var isNull = ( !query_obj.db_name )
-    var isUndefined = ( query_obj.db_name == undefined )
-    if ( isNull || isUndefined ) {
-        query_obj.db_name = default_db_name
-    }
-    if ( query_obj.values == undefined ) {
-        query_obj.values = null
-    }
-    return query_obj
-}
-
+//EXPORT OF PUBLIC METHODS TO USER
 module.exports = {
     config: config,
     connect: connect,
