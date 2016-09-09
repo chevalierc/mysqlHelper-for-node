@@ -1,6 +1,6 @@
 # Node Mysql-Helper Utility
 ###Node utility for simplifying interactions with a mysql database.
-
+Built to make DB interaction as simple as possible, while still handling all basic application needs.
 Automaticly detects primary key and table columns when needed then stores them for future method calls. Will prevent sql injection.
 
 #Basic Usage
@@ -37,13 +37,18 @@ sqlhelper.get({
 The most recent connected database will be your default database. You can change that using the config file. It will be used for any query you do not specify a database in the query object. 
 
 ```
-sqlHelper.connect( {
+var config = {
         host: "localhost",
         user: "admin",
         password: 'pw',
         database: "pinballMachine",
         connectionLimit: 20,
-    } )
+}
+sqlHelper.connect( config, function(){
+        query_db()
+)
+
+//The Callback is recomended but not required. During connection the helper grabs table columns information for its use in several methods, specificaly: get(), create(), update(), remove() & populate()
 ```
 ```
 sqlHelper.config( {
@@ -167,4 +172,5 @@ mysqlHelper.query({
         console.log(rows)
 }
 ```
+
 
