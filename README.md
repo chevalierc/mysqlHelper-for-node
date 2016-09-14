@@ -1,7 +1,19 @@
 # Node Mysql-Helper Utility
 ###Node utility for simplifying interactions with a mysql database.
+
+###About:
+
 Built to make DB interaction as simple as possible, while still handling all basic application needs.
 Automaticly detects primary key and table columns when needed then stores them for future method calls. Will prevent sql injection.
+
+###Install:
+
+Uses the official [mysql driver](https://www.npmjs.com/package/mysql). Make sure that is installed. Otherwise simply use the require() method to reference this file when needed.
+
+###Prefer Oracle?
+
+I have built an [additional helper for oracle databses](https://github.com/chevalierc/oracleHelper-for-node). It is not as tested and not injection-proof at the moment.
+
 
 #Basic Usage
 ```
