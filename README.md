@@ -58,7 +58,7 @@ var config = {
 }
 sqlHelper.connect( config, function(){
         query_db()
-)
+})
 
 //The Callback is recomended but not required. During connection the helper grabs table columns information for its use in several methods, specificaly: get(), create(), update(), remove() & populate()
 ```
