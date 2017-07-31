@@ -1,5 +1,5 @@
 # Node Mysql-Helper Utility
-###Node utility for simplifying interactions with a mysql database.
+### Node utility for simplifying interactions with a mysql database.
 
 ### About:
 
