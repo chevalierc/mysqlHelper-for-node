@@ -1,21 +1,21 @@
 # Node Mysql-Helper Utility
 ###Node utility for simplifying interactions with a mysql database.
 
-###About:
+### About:
 
 Built to make DB interaction as simple as possible, while still handling all basic application needs.
 Automaticly detects primary key and table columns when needed then stores them for future method calls. Will prevent sql injection.
 
-###Install:
+### Install:
 
 Uses the official [mysql driver](https://www.npmjs.com/package/mysql). Make sure that is installed. Otherwise simply use the require() method to reference this file when needed.
 
-###Prefer Oracle?
+### Prefer Oracle?
 
 I have built an [additional helper for oracle databses](https://github.com/chevalierc/oracleHelper-for-node). It is not as tested and not injection-proof at the moment.
 
 
-#Basic Usage
+# Basic Usage
 ```
 var dbConfig = database: {
         host: "localhost",
@@ -42,9 +42,9 @@ sqlhelper.get({
     }
 })
 ```
-#All Functions
+# All Functions
 
-##Configuration
+## Configuration
 
 The most recent connected database will be your default database. You can change that using the config file. It will be used for any query you do not specify a database in the query object. 
 
@@ -70,7 +70,7 @@ sqlHelper.config( {
 } )
 ```
 
-##Querying
+## Querying
 
 All methods follow the format: `sqlHelper.method( query_object, callback )`. If you wish to query on a specific database add its name to the `query_object` with the parameter `db_name`.
 
@@ -94,15 +94,15 @@ See example for how to use a find_object
 
 `sqlHelper.query( {sql, values}, callback)`
 
-##Object Manipulation
+## Object Manipulation
 
 `sqlHelper.pivot(object, pivot_column )`
 
 `sqlHelper.join(parentObject, childrenArray, foreignKey)`
 
-#More Examples
+# More Examples
 
-##FindObject Example
+## FindObject Example
 ```
 var find_obj = {
         gender: "male",
@@ -117,7 +117,7 @@ mysqlHelper.find({
 }
 ```
 
-##Populate Example (extreme joining)
+## Populate Example (extreme joining)
 
 ```
 var join_structure = {
@@ -146,7 +146,7 @@ mysqlHelper.populate( {
 }
 ```
 
-##Query with values Example
+## Query with values Example
 Using the values array you can avoid sqlInjection. Use `??` for column and table names and `?` for values
 ```
 mysqlHelper.query({
@@ -157,7 +157,7 @@ mysqlHelper.query({
 }
 ```
 
-##Multiple Database Conections
+## Multiple Database Conections
 ```
 var dbConfig1 = database: {
         host: "localhost",
