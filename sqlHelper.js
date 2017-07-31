@@ -210,8 +210,8 @@ var update = function( query_obj, cb ) {
     query_obj = clean_query_obj( query_obj )
     var table = query_obj.table
     var object = query_obj.object
-    var db_name = query_obj.db_name
-    var pk_column_name = db_data[ db_name ].tables[ table ].pk
+    var db = query_obj.db_name
+    var pk_column_name = db_data[ db ].tables[ table ].pk
     var id = object[ pk_column_name ]
     object = clean_object_for_insertion( table, object, db )
     query_obj.sql = "update ?? set ? where ?? = ? "
