@@ -117,6 +117,7 @@ var query = function( query_obj, cb ) {
         if ( log_sql ) {
             console.log( sql )
         }
+        console.log(sql)
         pool.query( sql, function( err, rows, cols ) {
             if ( err ) {
                 error( err, sql )
@@ -209,7 +210,7 @@ var update = function( query_obj, cb ) {
     query_obj = clean_query_obj( query_obj )
     var table = query_obj.table
     var object = query_obj.object
-    var db = query_obj.db_name
+    var db_name = query_obj.db_name
     var pk_column_name = db_data[ db_name ].tables[ table ].pk
     var id = object[ pk_column_name ]
     object = clean_object_for_insertion( table, object, db )
@@ -222,7 +223,7 @@ var update = function( query_obj, cb ) {
 var remove = function( query_obj, cb ) {
     query_obj = clean_query_obj( query_obj )
     var id = query_obj.id
-    var table = obj.table
+    var table = query_obj.table
     var db_name = query_obj.db_name
     var pk_column_name = db_data[ db_name ].tables[ table ].pk
     query_obj.sql = "delete from ?? where ?? = ?"
