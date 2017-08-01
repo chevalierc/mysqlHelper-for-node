@@ -86,7 +86,7 @@ See example for how to use a find_object
 
 `sqlHelper.find( {table, find_object} , callback)`
 
-`sqlHelper.findOne( {tableName, find_object}, callback)`
+`sqlHelper.findOne( {tableName, find}, callback)`
 
 `sqlHeper.all( {table}, callback)`
 
@@ -111,7 +111,7 @@ var find_obj = {
 }
 mysqlHelper.find({
         table: "users",
-        find_object: find_obj
+        find: find_obj
 }, function(err, rows, cols){
         console.log(rows)
 }
