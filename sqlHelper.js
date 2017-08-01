@@ -215,7 +215,7 @@ var update = function( query_obj, cb ) {
     var id = object[ pk_column_name ]
     object = clean_object_for_insertion( table, object, db )
     query_obj.sql = "update ?? set ? where ?? = ? "
-    query_obj.values = [ table, object, pk, id ]
+    query_obj.values = [ table, object, pk_column_name, id ]
 
     query( query_obj, cb );
 }
